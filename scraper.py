@@ -3,7 +3,7 @@ Scrape all deck data from lolchess.gg/meta and guide pages.
 Data is extracted from NEXT_DATA JSON (no browser needed for most data).
 Board screenshots are taken with playwright for deck A elements.
 """
-import requests, json, re, os, time
+import requests, json, re, os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 headers = {
@@ -155,6 +155,48 @@ for deck in all_guide_decks[1:]:  # skip first deck
     })
 
 print(f"Processed {len(decks)} decks")
+
+# ============================================================
+# 4. Fetch LV.5 champion list from each guide page (parallel)
+# ============================================================
+print("Fetching LV.5 champion data from guide pages...")
+
+def fetch_lv5_champs(deck, champ_refs, headers):
+    try:
+        r = requests.get(deck['guide_url'], headers=headers, timeout=30)
+        match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', r.text, re.DOTALL)
+        if not match:
+            return deck['key'], []
+        data = json.loads(match.group(1))
+        queries = data['props']['pageProps']['dehydratedState']['queries']
+        lv5 = queries[0]['state']['data'].get('lv5TeamBuilder', {})
+        champs = []
+        for slot in lv5.get('slots', []):
+            champ_key = slot.get('champion')
+            if champ_key:
+                champ = champ_refs.get(champ_key, {})
+                champs.append({
+                    'key': champ_key,
+                    'name': champ.get('name', champ_key),
+                    'imageUrl': champ.get('imageUrl', '')
+                })
+        return deck['key'], champs
+    except Exception as e:
+        print(f"  ERROR {deck['key']}: {e}")
+        return deck['key'], []
+
+lv5_map = {}
+with ThreadPoolExecutor(max_workers=8) as executor:
+    futures = {executor.submit(fetch_lv5_champs, d, champ_refs, headers): d['key'] for d in decks}
+    done = 0
+    for future in as_completed(futures):
+        key, champs = future.result()
+        lv5_map[key] = champs
+        done += 1
+        print(f"  [{done}/{len(decks)}] {key}: {len(champs)} champs")
+
+for deck in decks:
+    deck['lv5_champions'] = lv5_map.get(deck['key'], [])
 
 # Save data
 with open('data/decks.json', 'w', encoding='utf-8') as f:

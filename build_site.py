@@ -147,7 +147,11 @@ def deck_row_html(deck, b64_img):
         </div>'''
     col_champs += '</div></div>'
 
-    return f'<div class="deck-row">{col_board}{col_aug}{col_items}{col_champs}</div>\n'
+    # data-champs: LV.5 champion names + full champion names (for search)
+    all_champ_names = ' '.join(
+        c['name'] for c in deck.get('lv5_champions', []) + champions
+    )
+    return f'<div class="deck-row" data-champs="{all_champ_names}">{col_board}{col_aug}{col_items}{col_champs}</div>\n'
 
 rows_html = ""
 for deck in decks:
@@ -291,6 +295,36 @@ header .src-link:hover{{text-decoration:underline}}
 .champ-items{{display:flex;gap:1px;flex-wrap:wrap;justify-content:center;max-width:42px}}
 .champ-item-img{{width:13px;height:13px;border-radius:2px;object-fit:cover;border:1px solid #2a2a3a}}
 
+/* ── Search bar ── */
+.search-wrap{{
+  padding:10px 16px;
+  max-width:1560px;
+  margin:0 auto;
+}}
+.search-box{{
+  width:100%;
+  background:#1a1a26;
+  border:1px solid #333348;
+  border-radius:8px;
+  padding:10px 16px 10px 40px;
+  color:#ddd;
+  font-size:14px;
+  font-family:inherit;
+  outline:none;
+  transition:border-color 0.15s;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23666' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:14px center;
+}}
+.search-box:focus{{border-color:#c8924e}}
+.search-box::placeholder{{color:#444}}
+.search-count{{
+  font-size:11px;
+  color:#555;
+  text-align:right;
+  padding:2px 4px 6px;
+}}
+
 /* ── Footer ── */
 footer{{
   text-align:center;
@@ -309,13 +343,40 @@ footer{{
   <a class="src-link" href="https://lolchess.gg/meta" target="_blank">원본 사이트 →</a>
 </header>
 
-<div class="wrap">
+<div class="search-wrap">
+  <input type="text" class="search-box" id="champSearch" placeholder="챔피언 이름으로 검색... (예: 아칼리, 킨드레드)" autocomplete="off">
+  <div class="search-count" id="searchCount"></div>
+</div>
+
+<div class="wrap" id="deckList">
   {rows_html}
 </div>
 
 <footer>
   데이터 출처: lolchess.gg &nbsp;|&nbsp; 이미지 © Riot Games
 </footer>
+<script>
+(function() {{
+  var input = document.getElementById('champSearch');
+  var count = document.getElementById('searchCount');
+  var rows = document.querySelectorAll('.deck-row');
+  var total = rows.length;
+
+  function filter() {{
+    var q = input.value.trim().toLowerCase();
+    var visible = 0;
+    rows.forEach(function(row) {{
+      var champs = (row.getAttribute('data-champs') || '').toLowerCase();
+      var show = !q || champs.indexOf(q) !== -1;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    }});
+    count.textContent = q ? (visible + ' / ' + total + '개 덱') : '';
+  }}
+
+  input.addEventListener('input', filter);
+}})();
+</script>
 </body>
 </html>"""
 
