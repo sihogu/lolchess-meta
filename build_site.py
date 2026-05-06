@@ -147,11 +147,11 @@ def deck_row_html(deck, b64_img):
         </div>'''
     col_champs += '</div></div>'
 
-    # data-champs: LV.5 champion names + full champion names (for search)
-    all_champ_names = ' '.join(
+    # data-champs: deck name + LV.5 champions + full champions (for search)
+    search_tokens = name + ' ' + ' '.join(
         c['name'] for c in deck.get('lv5_champions', []) + champions
     )
-    return f'<div class="deck-row" data-champs="{all_champ_names}">{col_board}{col_aug}{col_items}{col_champs}</div>\n'
+    return f'<div class="deck-row" data-champs="{search_tokens}">{col_board}{col_aug}{col_items}{col_champs}</div>\n'
 
 rows_html = ""
 for deck in decks:
