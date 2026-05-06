@@ -344,7 +344,7 @@ footer{{
 </header>
 
 <div class="search-wrap">
-  <input type="text" class="search-box" id="champSearch" placeholder="챔피언 이름으로 검색... (예: 아칼리, 킨드레드)" autocomplete="off">
+  <input type="text" class="search-box" id="champSearch" placeholder="챔피언·덱 이름으로 검색... (예: 킨드레드, 선봉대 아칼리)" autocomplete="off">
   <div class="search-count" id="searchCount"></div>
 </div>
 
