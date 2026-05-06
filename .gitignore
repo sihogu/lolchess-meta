@@ -1,0 +1,6 @@
+screenshots/
+data/
+index.html
+__pycache__/
+*.pyc
+.uv/

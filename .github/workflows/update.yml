@@ -1,0 +1,55 @@
+name: Update TFT Meta Decks
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 매일 04:00 UTC = 13:00 KST
+  workflow_dispatch:       # 수동 실행 버튼
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Restore board screenshot cache
+        uses: actions/cache@v4
+        with:
+          path: screenshots/boards
+          key: boards-${{ github.run_id }}
+          restore-keys: boards-
+
+      - name: Install Python dependencies
+        run: pip install requests playwright
+
+      - name: Install Playwright browser + system deps
+        run: playwright install chromium --with-deps
+
+      - name: Scrape latest decks
+        run: python3 scraper.py
+
+      - name: Build site
+        run: |
+          mkdir -p screenshots/boards
+          python3 build_site.py
+
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p _site
+          cp index.html _site/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          force_orphan: true
