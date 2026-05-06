@@ -33,10 +33,10 @@ jobs:
       - name: Install Playwright browser + system deps
         run: playwright install chromium --with-deps
 
-      - name: Scrape latest decks
+      - name: Scrape latest decks (메타 덱 + LV.5 챔피언 + 재료 아이템)
         run: python3 scraper.py
 
-      - name: Build site
+      - name: Build site (LV.5 보드 캡처 + 검색 기능 포함)
         run: |
           mkdir -p screenshots/boards
           python3 build_site.py
