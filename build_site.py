@@ -363,15 +363,15 @@ footer{{
   var total = rows.length;
 
   function filter() {{
-    var q = input.value.trim().toLowerCase();
+    var terms = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     var visible = 0;
     rows.forEach(function(row) {{
       var champs = (row.getAttribute('data-champs') || '').toLowerCase();
-      var show = !q || champs.indexOf(q) !== -1;
+      var show = terms.length === 0 || terms.every(function(t) {{ return champs.indexOf(t) !== -1; }});
       row.style.display = show ? '' : 'none';
       if (show) visible++;
     }});
-    count.textContent = q ? (visible + ' / ' + total + '개 덱') : '';
+    count.textContent = terms.length ? (visible + ' / ' + total + '개 덱') : '';
   }}
 
   input.addEventListener('input', filter);
