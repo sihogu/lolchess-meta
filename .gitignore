@@ -1,6 +1,7 @@
 screenshots/
 data/
 index.html
+pbe.html
 __pycache__/
 *.pyc
 .uv/

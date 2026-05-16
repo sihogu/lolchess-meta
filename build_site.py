@@ -1,5 +1,6 @@
 """
 Generate the lolchess meta viewer website from scraped deck data.
+Builds index.html (regular meta) and pbe.html (PBE meta) with navigation between them.
 Layout per deck row: [board+name] | [augments] | [component items] | [champions]
 """
 import json, os, base64
@@ -7,27 +8,17 @@ from playwright.sync_api import sync_playwright
 
 os.makedirs("data", exist_ok=True)
 os.makedirs("screenshots/boards", exist_ok=True)
+os.makedirs("screenshots/boards_pbe", exist_ok=True)
 
-# ============================================================
-# Load data
-# ============================================================
-with open("data/decks.json", encoding="utf-8") as f:
-    decks = json.load(f)
-print(f"Loaded {len(decks)} decks")
 
-# ============================================================
-# Take board screenshots for each deck
-# ============================================================
-print("Taking board screenshots...")
-
-def take_board_screenshots(decks):
+def take_board_screenshots(decks, screenshot_dir):
     board_imgs = {}
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         for i, deck in enumerate(decks):
             key = deck['key']
             print(f"  [{i+1}/{len(decks)}] {deck['name']}")
-            img_path = f"screenshots/boards/{key}.png"
+            img_path = f"{screenshot_dir}/{key}.png"
             if os.path.exists(img_path):
                 board_imgs[key] = img_path
                 continue
@@ -35,7 +26,6 @@ def take_board_screenshots(decks):
                 page = browser.new_page(viewport={"width": 1440, "height": 900})
                 page.goto(deck['guide_url'], wait_until="domcontentloaded", timeout=60000)
                 page.wait_for_timeout(6000)
-                # Click Lv.5 tab
                 lv5 = page.locator(".TabNavItem", has_text="Lv. 5").first
                 if lv5.count() > 0:
                     lv5.click()
@@ -53,21 +43,6 @@ def take_board_screenshots(decks):
         browser.close()
     return board_imgs
 
-board_imgs = take_board_screenshots(decks)
-
-# ============================================================
-# Build base64 image map for board screenshots
-# ============================================================
-board_b64 = {}
-for key, path in board_imgs.items():
-    if path and os.path.exists(path):
-        with open(path, "rb") as f:
-            board_b64[key] = base64.b64encode(f.read()).decode()
-
-# ============================================================
-# Generate HTML
-# ============================================================
-print("Generating HTML...")
 
 def star_html(star):
     if star == 3:
@@ -75,6 +50,7 @@ def star_html(star):
     elif star == 2:
         return '<div class="stars s2">★★</div>'
     return ''
+
 
 def deck_row_html(deck, b64_img):
     key = deck['key']
@@ -88,7 +64,6 @@ def deck_row_html(deck, b64_img):
 
     hot_badge = '<span class="hot-badge">HOT</span>' if tag == 'hot' else ''
 
-    # Board column: deck name above, board image below
     if b64_img:
         board_content = f'<img src="data:image/png;base64,{b64_img}" class="board-img" alt="배치 보드">'
     else:
@@ -111,7 +86,6 @@ def deck_row_html(deck, b64_img):
       {board_content}
     </div>'''
 
-    # Augments column
     col_aug = '<div class="col-aug"><div class="aug-list">'
     for aug in augments:
         col_aug += f'''<div class="aug-row">
@@ -120,7 +94,6 @@ def deck_row_html(deck, b64_img):
         </div>'''
     col_aug += '</div></div>'
 
-    # Component items column
     col_items = '<div class="col-items"><div class="comp-list">'
     for item in items:
         cnt = item.get('count', 1)
@@ -134,7 +107,6 @@ def deck_row_html(deck, b64_img):
         </div>'''
     col_items += '</div></div>'
 
-    # Champions column (portrait + star + equipped items)
     col_champs = '<div class="col-champs"><div class="champ-list">'
     for champ in champions:
         items_html = ''
@@ -147,25 +119,26 @@ def deck_row_html(deck, b64_img):
         </div>'''
     col_champs += '</div></div>'
 
-    # data-champs: deck name + LV.5 champions + full champions (for search)
     search_tokens = name + ' ' + ' '.join(
         c['name'] for c in deck.get('lv5_champions', []) + champions
     )
     return f'<div class="deck-row" data-champs="{search_tokens}">{col_board}{col_aug}{col_items}{col_champs}</div>\n'
 
-rows_html = ""
-for deck in decks:
-    rows_html += deck_row_html(deck, board_b64.get(deck['key']))
 
-# ============================================================
-# Full HTML
-# ============================================================
-html = f"""<!DOCTYPE html>
+def generate_html(rows_html, pbe=False):
+    title = "TFT 추천 PBE 덱 | 시즌 17" if pbe else "TFT 추천 메타 덱 | 시즌 17"
+    h1_text = "TFT 추천 PBE 덱" if pbe else "TFT 추천 메타 덱"
+    sub_text = "lolchess.gg PBE 기반 · 시즌 17" if pbe else "lolchess.gg 기반 · 시즌 17 · v17.2b"
+    src_url = "https://lolchess.gg/meta?pbe=true" if pbe else "https://lolchess.gg/meta"
+    nav_meta_cls = "nav-tab" if pbe else "nav-tab active"
+    nav_pbe_cls = "nav-tab active" if pbe else "nav-tab"
+
+    return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TFT 추천 메타 덱 | 시즌 17</title>
+<title>{title}</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{
@@ -192,6 +165,21 @@ header h1{{font-size:18px;color:#c8924e;font-weight:700;letter-spacing:-0.3px}}
 header .sub{{color:#666;font-size:12px}}
 header .src-link{{margin-left:auto;color:#c8924e;font-size:12px;text-decoration:none}}
 header .src-link:hover{{text-decoration:underline}}
+
+/* ── Mode nav ── */
+.mode-nav{{display:flex;gap:4px;margin-left:16px}}
+.nav-tab{{
+  padding:4px 12px;
+  border-radius:4px;
+  text-decoration:none;
+  color:#888;
+  font-size:12px;
+  font-weight:600;
+  border:1px solid #333;
+  transition:color 0.15s,border-color 0.15s;
+}}
+.nav-tab.active{{color:#c8924e;border-color:#c8924e;background:#c8924e11}}
+.nav-tab:hover:not(.active){{color:#ccc;border-color:#555}}
 
 /* ── Container ── */
 .wrap{{max-width:1560px;margin:0 auto;padding:12px 16px}}
@@ -338,9 +326,13 @@ footer{{
 </head>
 <body>
 <header>
-  <h1>TFT 추천 메타 덱</h1>
-  <span class="sub">lolchess.gg 기반 · 시즌 17 · v17.2b</span>
-  <a class="src-link" href="https://lolchess.gg/meta" target="_blank">원본 사이트 →</a>
+  <h1>{h1_text}</h1>
+  <span class="sub">{sub_text}</span>
+  <nav class="mode-nav">
+    <a href="./index.html" class="{nav_meta_cls}">메타 서버</a>
+    <a href="./pbe.html" class="{nav_pbe_cls}">PBE 서버</a>
+  </nav>
+  <a class="src-link" href="{src_url}" target="_blank">원본 사이트 →</a>
 </header>
 
 <div class="search-wrap">
@@ -380,6 +372,35 @@ footer{{
 </body>
 </html>"""
 
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(html)
-print(f"index.html 생성 완료 ({len(html):,} bytes / {len(html)//1024//1024} MB)")
+
+def build_page(decks_file, screenshot_dir, output_file, pbe=False):
+    label = "PBE" if pbe else "메타"
+    print(f"\n{'='*50}")
+    print(f"Building {label} page from {decks_file}...")
+
+    with open(decks_file, encoding="utf-8") as f:
+        decks = json.load(f)
+    print(f"Loaded {len(decks)} decks")
+
+    print("Taking board screenshots...")
+    board_imgs = take_board_screenshots(decks, screenshot_dir)
+
+    board_b64 = {}
+    for key, path in board_imgs.items():
+        if path and os.path.exists(path):
+            with open(path, "rb") as f:
+                board_b64[key] = base64.b64encode(f.read()).decode()
+
+    print("Generating HTML...")
+    rows_html = ""
+    for deck in decks:
+        rows_html += deck_row_html(deck, board_b64.get(deck['key']))
+
+    html = generate_html(rows_html, pbe)
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"{output_file} 생성 완료 ({len(html):,} bytes / {len(html)//1024//1024} MB)")
+
+
+build_page("data/decks.json", "screenshots/boards", "index.html", pbe=False)
+build_page("data/decks_pbe.json", "screenshots/boards_pbe", "pbe.html", pbe=True)

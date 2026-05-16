@@ -23,7 +23,9 @@ jobs:
       - name: Restore board screenshot cache
         uses: actions/cache@v4
         with:
-          path: screenshots/boards
+          path: |
+            screenshots/boards
+            screenshots/boards_pbe
           key: boards-${{ github.run_id }}
           restore-keys: boards-
 
@@ -33,18 +35,19 @@ jobs:
       - name: Install Playwright browser + system deps
         run: playwright install chromium --with-deps
 
-      - name: Scrape latest decks (메타 덱 + LV.5 챔피언 + 재료 아이템)
+      - name: Scrape latest decks (메타 + PBE · LV.5 챔피언 + 재료 아이템)
         run: python3 scraper.py
 
-      - name: Build site (LV.5 보드 캡처 + 검색 기능 포함)
+      - name: Build site (메타 + PBE · LV.5 보드 캡처 + 검색 기능 포함)
         run: |
-          mkdir -p screenshots/boards
+          mkdir -p screenshots/boards screenshots/boards_pbe
           python3 build_site.py
 
       - name: Prepare deploy directory
         run: |
           mkdir -p _site
           cp index.html _site/index.html
+          cp pbe.html _site/pbe.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
